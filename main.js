@@ -60,6 +60,7 @@ uniform mat4 modelViewMatrix;
 uniform mat3 normalMatrix;
 uniform float SEGMENTS;
 uniform float SIDES;
+uniform float time;
 
 const float PI = 3.1415926535897932384626433832795;
 const float TAU = 2. * PI;
@@ -100,7 +101,8 @@ void main() {
   vec3 dir = normalize(base - prevBase);
 
   float beta = TAU * position.y / SIDES;
-  float tubeRadius = 1.;
+  float animStep = mod(position.x + time, SEGMENTS) / SEGMENTS;
+  float tubeRadius = 2. * clamp(parabola(animStep, 5.) - .5, 0., 1.);
   
   vec3 tubeDir = tubeRadius * vec3(0., 1., 0.);
   tubeDir = applyQuat(quat(dir, beta), tubeDir);
@@ -125,10 +127,6 @@ out vec4 color;
 uniform sampler2D matCapMap;
 
 void main() {
-	// vec3 fdx = vec3( dFdx( pos.x ), dFdx( pos.y ), dFdx( pos.z ) );
-	// vec3 fdy = vec3( dFdy( pos.x ), dFdy( pos.y ), dFdy( pos.z ) );
-	// vec3 normal = normalize( cross( fdx, fdy ) );
-
   vec3 n = normalize(normal);
   vec3 eye = normalize(pos.xyz);
   vec3 r = reflect( eye, normal );
@@ -139,7 +137,7 @@ void main() {
 
   color = vec4(mat, 1.);
   // color = vec4(1.,0.,1.,1.);
-  // color = vec4(.5 + .5 * n, 1.);
+  color = vec4(.5 + .5 * n, 1.);
 }
 `;
 
@@ -184,6 +182,7 @@ const geoMat = new RawShaderMaterial({
     SEGMENTS: { value: SEGMENTS },
     SIDES: { value: SIDES },
     matCapMap: { value: matCapTexture },
+    time: { value: 0 },
   },
   vertexShader,
   fragmentShader,
@@ -200,7 +199,7 @@ const cube = new Mesh(new BoxBufferGeometry(1, 1, 1), mat);
 
 const meshes = [];
 const N = 180;
-const N2 = 1;
+const N2 = 9;
 for (let i = 0; i < N2; i++) {
   const angle = (i * TAU) / N2;
   const t = new Mesh(geometry, geoMat);
@@ -249,6 +248,7 @@ onResize();
 window.addEventListener("resize", onResize);
 
 function render() {
+  geoMat.uniforms.time.value = 0.1 * performance.now();
   renderer.setAnimationLoop(render);
   renderer.render(scene, camera);
 }
