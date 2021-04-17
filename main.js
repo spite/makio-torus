@@ -1,24 +1,14 @@
 import {
   Scene,
   FogExp2,
-  SphereBufferGeometry,
-  MeshMatcapMaterial,
   Group,
-  TangentSpaceNormalMap,
   TextureLoader,
   Vector3,
-  Euler,
   Mesh,
   WebGLRenderer,
   PerspectiveCamera,
-  MeshNormalMaterial,
-  BoxBufferGeometry,
   RawShaderMaterial,
   BufferAttribute,
-  TorusBufferGeometry,
-  IcosahedronBufferGeometry,
-  Matrix3,
-  Matrix4,
   BufferGeometry,
 } from "./three.module.js";
 import { OrbitControls } from "./OrbitControls.js";
@@ -26,29 +16,6 @@ import { OrbitControls } from "./OrbitControls.js";
 const scene = new Scene();
 scene.fog = new FogExp2(0x1f1f1f, 0.01);
 // scene.background = new Color(0x1f1f1f)
-
-// const geom = new (RoundedBoxGeometry(THREE))(1, 1, 1, .1, 5)
-const geom = new IcosahedronBufferGeometry(1, 3);
-// const geom = new TorusGeometry(1, .1, 16, 100)
-
-const material = new MeshMatcapMaterial({
-  matcap: new TextureLoader().load("matcap.png"),
-  normalMapType: TangentSpaceNormalMap,
-});
-const material2 = new MeshMatcapMaterial({
-  matcap: new TextureLoader().load(
-    "https://makio135.com/matcaps/512/736655_D9D8D5_2F281F_B1AEAB-512px.png"
-  ),
-  normalMapType: TangentSpaceNormalMap,
-});
-const material3 = new MeshMatcapMaterial({
-  matcap: new TextureLoader().load(
-    "https://makio135.com/matcaps/512/181F1F_475057_616566_525C62-512px.png"
-  ),
-  normalMapType: TangentSpaceNormalMap,
-});
-
-const mat = new MeshNormalMaterial({ wireframe: true });
 
 const vertexShader = `#version 300 es
 precision highp float;
