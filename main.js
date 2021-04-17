@@ -101,9 +101,9 @@ void main() {
   vec3 dir = normalize(base - prevBase);
 
   float beta = TAU * position.y / SIDES;
-  float animStep = mod(position.x + time, SEGMENTS) / SEGMENTS;
-  float tubeRadius = 2. * clamp(parabola(animStep, 5.) - .5, 0., 1.);
-  
+  float animStep = mod(3.*position.x + time, SEGMENTS) / SEGMENTS;
+  float tubeRadius = max(0., pow(sin(alpha * 3. + time * TAU) + 1.2, 2.)) * 0.3;
+
   vec3 tubeDir = tubeRadius * vec3(0., 1., 0.);
   tubeDir = applyQuat(quat(dir, beta), tubeDir);
   vec3 newPosition = base + tubeDir;
@@ -137,7 +137,7 @@ void main() {
 
   color = vec4(mat, 1.);
   // color = vec4(1.,0.,1.,1.);
-  color = vec4(.5 + .5 * n, 1.);
+  // color = vec4(.5 + .5 * n, 1.);
 }
 `;
 
@@ -172,61 +172,37 @@ for (let segment = 0; segment < SEGMENTS + 1; segment++) {
 geometry.setIndex(indices);
 geometry.setAttribute("position", new BufferAttribute(vertices, 3));
 
-// geometry.applyMatrix(new Matrix4().makeRotationX(Math.PI / 2));
-
 const loader = new TextureLoader();
-const matCapTexture = loader.load("matcap.png");
-
-const geoMat = new RawShaderMaterial({
-  uniforms: {
-    SEGMENTS: { value: SEGMENTS },
-    SIDES: { value: SIDES },
-    matCapMap: { value: matCapTexture },
-    time: { value: 0 },
-  },
-  vertexShader,
-  fragmentShader,
-  // wireframe: true,
-});
+const matcap1 = loader.load("matcap1.jpg");
+const matcap2 = loader.load("matcap2.png");
+const matcap3 = loader.load("matcap3.png");
 
 const g = new Group();
 scene.add(g);
 
 const TAU = 2 * Math.PI;
 
-const cube = new Mesh(new BoxBufferGeometry(1, 1, 1), mat);
-// scene.add(cube);
-
 const meshes = [];
-const N = 180;
 const N2 = 9;
 for (let i = 0; i < N2; i++) {
+  const geoMat = new RawShaderMaterial({
+    uniforms: {
+      SEGMENTS: { value: SEGMENTS },
+      SIDES: { value: SIDES },
+      matCapMap: {
+        value: i % 3 === 0 ? matcap1 : i % 3 === 1 ? matcap2 : matcap3,
+      },
+      time: { value: 0 },
+    },
+    vertexShader,
+    fragmentShader,
+    // wireframe: true,
+  });
   const angle = (i * TAU) / N2;
   const t = new Mesh(geometry, geoMat);
-  t.rotation.y = angle;
+  t.rotation.y = angle / 2;
   g.add(t);
-}
-for (let i = 0; i < N; i++) {
-  const p = i / N;
-  const angle = p * TAU;
-  for (let j = 0; j < N2; j++) {
-    const v = new Vector3(6, 0, 0);
-    v.applyEuler(new Euler(0, 0, angle * 2 + (j / N2) * TAU)); // spring like torsion
-    v.add(new Vector3(17, 0, 0));
-    v.applyEuler(new Euler(0, angle, 0));
-
-    const mesh = new Mesh(
-      geom,
-      mat
-      // j % 3 === 0 ? material : j % 3 === 1 ? material2 : material3
-    );
-    mesh.position.x = v.x;
-    mesh.position.y = v.y + Math.sin(angle * 3) * 2; // ondulation on the main ring
-    mesh.position.z = v.z;
-    mesh.rotation.y = angle;
-    // g.add(mesh);
-    // meshes.push({ mesh, angle });
-  }
+  meshes.push(t);
 }
 
 const camera = new PerspectiveCamera(75, 1, 0.1, 150);
@@ -248,7 +224,9 @@ onResize();
 window.addEventListener("resize", onResize);
 
 function render() {
-  geoMat.uniforms.time.value = 0.1 * performance.now();
+  meshes.forEach((m) => {
+    m.material.uniforms.time.value = 0.0005 * performance.now();
+  });
   renderer.setAnimationLoop(render);
   renderer.render(scene, camera);
 }
