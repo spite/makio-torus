@@ -28,6 +28,7 @@ uniform mat3 normalMatrix;
 uniform float SEGMENTS;
 uniform float SIDES;
 uniform float time;
+uniform float index;
 
 const float PI = 3.1415926535897932384626433832795;
 const float TAU = 2. * PI;
@@ -50,7 +51,9 @@ vec3 getBasePoint(float alpha) {
   vec3 dir = vec3(cos(alpha+PI/2.), 0., sin(alpha+PI/2.));
 
   float a = 2.*alpha;
+  a += index/9. * TAU;
   p += applyQuat(quat(dir, a), vec3(0., 6., 0.));
+  p.y += sin(alpha * 3.) * 4.;
   return p;
 }
 
@@ -69,7 +72,7 @@ void main() {
 
   float beta = TAU * position.y / SIDES;
   float animStep = mod(3.*position.x + time, SEGMENTS) / SEGMENTS;
-  float tubeRadius = max(0., pow(sin(alpha * 3. + time * TAU) + 1.2, 2.)) * 0.3;
+  float tubeRadius = max(0., pow(sin(alpha * 3. + (1. - time) * TAU) + 1.2, 2.)) * 0.3;
 
   vec3 tubeDir = tubeRadius * vec3(0., 1., 0.);
   tubeDir = applyQuat(quat(dir, beta), tubeDir);
@@ -160,6 +163,7 @@ for (let i = 0; i < N2; i++) {
         value: i % 3 === 0 ? matcap1 : i % 3 === 1 ? matcap2 : matcap3,
       },
       time: { value: 0 },
+      index: { value: i },
     },
     vertexShader,
     fragmentShader,
@@ -167,7 +171,7 @@ for (let i = 0; i < N2; i++) {
   });
   const angle = (i * TAU) / N2;
   const t = new Mesh(geometry, geoMat);
-  t.rotation.y = angle / 2;
+  // t.rotation.y = angle / 2;
   g.add(t);
   meshes.push(t);
 }
@@ -198,16 +202,3 @@ function render() {
   renderer.render(scene, camera);
 }
 render();
-
-// // createScene must return a function to update the scene
-// return (s, t) => {
-//   meshes.forEach(({ mesh, angle }) => {
-//     const s = (Math.max(0, Math.sin(angle * 3 + t * TAU) + 1.2) ** 2) * 0.3
-//     mesh.scale.copy(new Vector3(s, s, s))
-//   })
-
-//   renderer.render(scene, camera)
-
-//   // the update function must return the renderer
-//   return renderer
-// }
