@@ -57,8 +57,12 @@ in vec3 position;
 
 uniform mat4 projectionMatrix;
 uniform mat4 modelViewMatrix;
+uniform mat3 normalMatrix;
+uniform float SEGMENTS;
+uniform float SIDES;
 
 const float PI = 3.1415926535897932384626433832795;
+const float TAU = 2. * PI;
 
 vec4 quat(vec3 axis, float angle) {
   float halfAngle = angle / 2.;
@@ -72,13 +76,6 @@ vec3 applyQuat( vec4 q, vec3 v ){
 	return v + 2.0*cross(cross(v, q.xyz ) + q.w*v, q.xyz);
 }
 
-/*
-const v = new Vector3(6, 0, 0);
-v.applyEuler(new Euler(0, 0, angle * 2 + (j / N2) * TAU)); // spring like torsion
-v.add(new Vector3(17, 0, 0));
-v.applyEuler(new Euler(0, angle, 0));
-*/
-
 vec3 getBasePoint(float alpha) {
   float r = 17.;
   vec3 p = vec3(r * cos(alpha), 0., r * sin(alpha));
@@ -90,21 +87,28 @@ vec3 getBasePoint(float alpha) {
 }
 
 out vec3 pos;
+out vec3 normal;
+
+float parabola( float x, float k ) {
+  return pow( 4. * x * ( 1. - x ), k );
+}
 
 void main() {
-  float alpha = 2. * PI * position.x / 200.;
+  float alpha = TAU * position.x / SEGMENTS;
   vec3 base = getBasePoint(alpha);
-  vec3 prevBase = getBasePoint(alpha - 2. * PI / 200.);
+  vec3 prevBase = getBasePoint(alpha - TAU / SEGMENTS);
   vec3 dir = normalize(base - prevBase);
 
-  float beta = 2. * PI * position.y / 40.;
-  float r2 = 1.;
-
-  vec3 d = r2 * vec3(0., 1., 0.);
-  d = applyQuat(quat(dir, beta), d);
-  vec3 p = base + d;
+  float beta = TAU * position.y / SIDES;
+  float tubeRadius = 1.;
   
-  vec4 mvp = modelViewMatrix * vec4(p, 1.);
+  vec3 tubeDir = tubeRadius * vec3(0., 1., 0.);
+  tubeDir = applyQuat(quat(dir, beta), tubeDir);
+  vec3 newPosition = base + tubeDir;
+
+  normal = normalMatrix * normalize(tubeDir);
+
+  vec4 mvp = modelViewMatrix * vec4(newPosition, 1.);
   pos = mvp.xyz;
   gl_Position = projectionMatrix * mvp;
 }
@@ -114,25 +118,32 @@ const fragmentShader = `#version 300 es
 precision highp float;
 
 in vec3 pos;
+in vec3 normal;
 
 out vec4 color;
 
-void main() {
-	vec3 fdx = vec3( dFdx( pos.x ), dFdx( pos.y ), dFdx( pos.z ) );
-	vec3 fdy = vec3( dFdy( pos.x ), dFdy( pos.y ), dFdy( pos.z ) );
-	vec3 normal = normalize( cross( fdx, fdy ) );
+uniform sampler2D matCapMap;
 
-  color = vec4(1.,0.,1.,1.);
-  color = vec4(normal, 1.);
+void main() {
+	// vec3 fdx = vec3( dFdx( pos.x ), dFdx( pos.y ), dFdx( pos.z ) );
+	// vec3 fdy = vec3( dFdy( pos.x ), dFdy( pos.y ), dFdy( pos.z ) );
+	// vec3 normal = normalize( cross( fdx, fdy ) );
+
+  vec3 n = normalize(normal);
+  vec3 eye = normalize(pos.xyz);
+  vec3 r = reflect( eye, normal );
+  float m = 2. * sqrt( pow( r.x, 2. ) + pow( r.y, 2. ) + pow( r.z + 1., 2. ) );
+  vec2 vN = r.xy / m + .5;
+
+  vec3 mat = texture(matCapMap, vN).rgb;
+
+  color = vec4(mat, 1.);
+  // color = vec4(1.,0.,1.,1.);
+  // color = vec4(.5 + .5 * n, 1.);
 }
 `;
-const geoMat = new RawShaderMaterial({
-  uniforms: {},
-  vertexShader,
-  fragmentShader,
-  // wireframe: true,
-});
-const SIDES = 40;
+
+const SIDES = 20;
 const SEGMENTS = 200;
 const geometry = new BufferGeometry();
 
@@ -142,12 +153,9 @@ const vertices = new Float32Array(SIDES * SEGMENTS * 3);
 let ptr = 0;
 for (let segment = 0; segment < SEGMENTS; segment++) {
   for (let side = 0; side < SIDES; side++) {
-    const x = segment;
-    const y = side;
-    const z = 0;
-    vertices[ptr] = x;
-    vertices[ptr + 1] = y;
-    vertices[ptr + 2] = z;
+    vertices[ptr] = segment;
+    vertices[ptr + 1] = side;
+    vertices[ptr + 2] = 0;
     ptr += 3;
   }
 }
@@ -168,6 +176,20 @@ geometry.setAttribute("position", new BufferAttribute(vertices, 3));
 
 // geometry.applyMatrix(new Matrix4().makeRotationX(Math.PI / 2));
 
+const loader = new TextureLoader();
+const matCapTexture = loader.load("matcap.png");
+
+const geoMat = new RawShaderMaterial({
+  uniforms: {
+    SEGMENTS: { value: SEGMENTS },
+    SIDES: { value: SIDES },
+    matCapMap: { value: matCapTexture },
+  },
+  vertexShader,
+  fragmentShader,
+  // wireframe: true,
+});
+
 const g = new Group();
 scene.add(g);
 
@@ -178,7 +200,7 @@ const cube = new Mesh(new BoxBufferGeometry(1, 1, 1), mat);
 
 const meshes = [];
 const N = 180;
-const N2 = 9;
+const N2 = 1;
 for (let i = 0; i < N2; i++) {
   const angle = (i * TAU) / N2;
   const t = new Mesh(geometry, geoMat);
